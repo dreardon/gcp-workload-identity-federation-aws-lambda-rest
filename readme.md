@@ -70,7 +70,8 @@ aws iam create-role --role-name $AWS_ROLE_NAME  \
     --assume-role-policy-document file://policy-document.json  \
     --description "Role used to send images to GCP Vision API"
 
-export ROLE_ARN=$(aws iam get-role --role-name $AWS_ROLE_NAME --query 'Role.[RoleName, Arn]' --output text | awk '{print $2}')
+export ROLE_ARN=$(aws iam get-role --role-name $AWS_ROLE_NAME \
+--query 'Role.[RoleName, Arn]' --output text | awk '{print $2}')
 ```
 ![AWS Role Permission Tab](images/aws_permissions.png)
 ![AWS Role Trust Tab](images/aws_trust.png)
@@ -89,8 +90,10 @@ gcloud iam workload-identity-pools providers create-aws $WORKLOAD_PROVIDER  \
   --location="global"  \
   --workload-identity-pool=$WORKLOAD_IDENTITY_POOL \
   --account-id="$AWS_ACCOUNT_ID" \
-  --attribute-mapping="google.subject=assertion.arn"
-  --attribute-mapping="attribute.aws_role=assertion.arn.contains('assumed-role') ? assertion.arn.extract('{account_arn}assumed-role/') + 'assumed-role/' + assertion.arn.extract('assumed-role/{role_name}/') : assertion.arn"
+  --attribute-mapping="google.subject=assertion.arn" \
+  --attribute-mapping="attribute.aws_role=assertion.arn.contains('assumed-role') \
+    ? assertion.arn.extract('{account_arn}assumed-role/') + 'assumed-role/' + \
+    assertion.arn.extract('assumed-role/{role_name}/') : assertion.arn"
 ```
 
 ## Deploy Sample Lambda Function
@@ -106,7 +109,14 @@ LAYER_URI=$(aws lambda publish-layer-version --layer-name requests \
       --compatible-runtimes python3.9 \
       --query 'LayerVersionArn' --output text | cut -d/ -f1)
 
-aws lambda create-function --function-name "$LAMBDA_FUNCTION_NAME" --zip-file fileb://lambda_function.zip --handler workload_identity.lambda_handler --runtime python3.9 --role arn:aws:iam::$AWS_ACCOUNT_ID:role/$AWS_ROLE_NAME --layers $LAYER_URI --timeout 900 --environment "Variables={PROJECT_ID=$PROJECT_ID,PROJECT_NUMBER=$PROJECT_NUMBER,POOL_ID=$WORKLOAD_IDENTITY_POOL,PROVIDER_ID=$WORKLOAD_PROVIDER,SERVICE_ACCOUNT=$SERVICE_ACCOUNT}"
+aws lambda create-function --function-name "$LAMBDA_FUNCTION_NAME" \
+--zip-file fileb://lambda_function.zip \
+--handler workload_identity.lambda_handler \
+--runtime python3.9 \
+--role arn:aws:iam::$AWS_ACCOUNT_ID:role/$AWS_ROLE_NAME \
+--layers $LAYER_URI \
+--timeout 900 \
+--environment "Variables={PROJECT_ID=$PROJECT_ID,PROJECT_NUMBER=$PROJECT_NUMBER,POOL_ID=$WORKLOAD_IDENTITY_POOL,PROVIDER_ID=$WORKLOAD_PROVIDER,SERVICE_ACCOUNT=$SERVICE_ACCOUNT}"
 ```
 
 ## Validate Workload Identity Federation Pool Setup
