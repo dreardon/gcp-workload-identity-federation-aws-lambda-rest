@@ -2,3 +2,7 @@
 venvs
 policy-document.json
 role.json
+.env
+example-lambda-function/lambda_function.zip
+example-lambda-function/python/
+example-lambda-function/requests.zip

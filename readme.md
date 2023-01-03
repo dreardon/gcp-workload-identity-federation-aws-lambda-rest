@@ -33,7 +33,7 @@ export WORKLOAD_IDENTITY_POOL=[Workload Identity Pool] #New Workload Identity Po
 gcloud config set project $PROJECT_ID
 
 gcloud iam service-accounts create $SERVICE_ACCOUNT \
-    --display-name="AWS Workload Identity SA"
+    --display-name="AWS Lambda Workload Identity SA"
 
 # Defines what this service account can do once assumed by AWS
 gcloud projects add-iam-policy-binding $PROJECT_ID \
@@ -42,8 +42,8 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 gcloud iam workload-identity-pools create $WORKLOAD_IDENTITY_POOL \
     --location="global" \
---description="Workload Identity Pool for AWS" \
---display-name="AWS Workload Pool"
+--description="Workload Identity Pool for AWS Lambda" \
+--display-name="AWS Lambda Workload Pool"
 ```
 
 ## AWS Role Creation
@@ -80,6 +80,7 @@ export ROLE_ARN=$(aws iam get-role --role-name $AWS_ROLE_NAME \
 
 ```
 export WORKLOAD_PROVIDER=[Workload Identity Provider] #New Workload Provider Name
+export AWS_ACCOUNT_ID=[AWS Account ID] 
 
 #Allows the AWS role attached to Lambda to use the previously created GCP service account
 gcloud iam service-accounts add-iam-policy-binding $SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com \
@@ -90,16 +91,14 @@ gcloud iam workload-identity-pools providers create-aws $WORKLOAD_PROVIDER  \
   --location="global"  \
   --workload-identity-pool=$WORKLOAD_IDENTITY_POOL \
   --account-id="$AWS_ACCOUNT_ID" \
-  --attribute-mapping="google.subject=assertion.arn" \
-  --attribute-mapping="attribute.aws_role=assertion.arn.contains('assumed-role') \
-    ? assertion.arn.extract('{account_arn}assumed-role/') + 'assumed-role/' + \
-    assertion.arn.extract('assumed-role/{role_name}/') : assertion.arn"
+  --attribute-mapping="google.subject=assertion.arn","attribute.aws_role=assertion.arn.contains('assumed-role') ? assertion.arn.extract('{account_arn}assumed-role/') + 'assumed-role/' + assertion.arn.extract('assumed-role/{role_name}/') : assertion.arn"
 ```
 
 ## Deploy Sample Lambda Function
 ```
 export LAMBDA_FUNCTION_NAME="Sample_GCP_Vision_API"
 
+cd example-lambda-function
 mkdir python
 pip3 install requests -t ./python
 zip -r9 ./requests.zip ./python
@@ -108,6 +107,8 @@ LAYER_URI=$(aws lambda publish-layer-version --layer-name requests \
       --zip-file fileb://./requests.zip \
       --compatible-runtimes python3.9 \
       --query 'LayerVersionArn' --output text | cut -d/ -f1)
+
+zip lambda_function.zip workload_identity.py
 
 aws lambda create-function --function-name "$LAMBDA_FUNCTION_NAME" \
 --zip-file fileb://lambda_function.zip \
