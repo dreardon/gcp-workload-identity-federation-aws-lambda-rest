@@ -6,11 +6,12 @@ This is an AWS Lambda case of a multi project set of examples for configuring Go
 This is not an officially supported Google product
 
 ## Table of Contents
-1. [Prerequisites](https://github.com/dreardon/workload-identity-aws-rest#prerequisites)
-1. [Google Service Account and Identity Pool](https://github.com/dreardon/workload-identity-aws-rest#create-a-google-service-account-and-identity-pool)
-1. [AWS IAM Role Creation](https://github.com/dreardon/workload-identity-aws-rest#aws-role-creation)
-1. [Connect Identity Pool to AWS](https://github.com/dreardon/workload-identity-aws-rest#connect-identity-pool-to-aws-create-provider)
-1. [Validate Workload Identity Federation Setup](https://github.com/dreardon/workload-identity-aws-rest#validate-workload-identity-federation-pool-setup)
+1. [Prerequisites](https://github.com/dreardon/gcp-workload-identity-federation-aws-lambda-rest#prerequisites)
+1. [Google Service Account and Identity Pool](https://github.com/dreardon/gcp-workload-identity-federation-aws-lambda-rest#create-a-google-service-account-and-identity-pool)
+1. [AWS IAM Role Creation](https://github.com/dreardon/gcp-workload-identity-federation-aws-lambda-rest#aws-role-creation)
+1. [Connect Identity Pool to AWS](https://github.com/dreardon/gcp-workload-identity-federation-aws-lambda-rest#connect-identity-pool-to-aws-create-provider)
+1. [Deploy Sample Lambda Function](https://github.com/dreardon/gcp-workload-identity-federation-aws-lambda-rest#deploy-sample-lambda-function)
+1. [Validate Workload Identity Federation Setup](https://github.com/dreardon/gcp-workload-identity-federation-aws-lambda-rest#validate-workload-identity-federation-pool-setup)
 
 ## Prerequisites
 <ul type="square"><li>An existing Google Project, you'll need to reference PROJECT_ID later in this setup</li>
@@ -48,7 +49,7 @@ gcloud iam workload-identity-pools create $WORKLOAD_IDENTITY_POOL \
 ## AWS Role Creation
 
 ```
-export AWS_ROLE_NAME=GCP_Vision_API
+export AWS_ROLE_NAME=[AWS Role Name] #New Role for Future Lambda
 
 cat > policy-document.json << ENDOFFILE
 {
@@ -77,12 +78,7 @@ export ROLE_ARN=$(aws iam get-role --role-name $AWS_ROLE_NAME --query 'Role.[Rol
 ## Connect Identity Pool to AWS, Create Provider
 
 ```
-export PROJECT_ID=[Google Project ID]
-export PROJECT_NUMBER=[Google Project Number]
-export SERVICE_ACCOUNT=[Google Service Account Name]
-export WORKLOAD_IDENTITY_POOL=[Workload Identity Pool]
 export WORKLOAD_PROVIDER=[Workload Identity Provider] #New Workload Provider Name
-export AWS_ACCOUNT_ID=[AWS Account ID]
 
 #Allows the AWS role attached to Lambda to use the previously created GCP service account
 gcloud iam service-accounts add-iam-policy-binding $SERVICE_ACCOUNT@$PROJECT_ID.iam.gserviceaccount.com \
@@ -98,11 +94,8 @@ gcloud iam workload-identity-pools providers create-aws $WORKLOAD_PROVIDER  \
 ```
 
 ## Deploy Sample Lambda Function
+```
 export LAMBDA_FUNCTION_NAME="Sample_GCP_Vision_API"
-export SERVICE_ACCOUNT=aws-wi
-export WORKLOAD_IDENTITY_POOL=wi-federation-aws-pool
-export AWS_ACCOUNT_ID=679695450108
-export WORKLOAD_PROVIDER=wi-federation-aws-provider
 
 mkdir python
 pip3 install requests -t ./python
@@ -114,6 +107,7 @@ LAYER_URI=$(aws lambda publish-layer-version --layer-name requests \
       --query 'LayerVersionArn' --output text | cut -d/ -f1)
 
 aws lambda create-function --function-name "$LAMBDA_FUNCTION_NAME" --zip-file fileb://lambda_function.zip --handler workload_identity.lambda_handler --runtime python3.9 --role arn:aws:iam::$AWS_ACCOUNT_ID:role/$AWS_ROLE_NAME --layers $LAYER_URI --timeout 900 --environment "Variables={PROJECT_ID=$PROJECT_ID,PROJECT_NUMBER=$PROJECT_NUMBER,POOL_ID=$WORKLOAD_IDENTITY_POOL,PROVIDER_ID=$WORKLOAD_PROVIDER,SERVICE_ACCOUNT=$SERVICE_ACCOUNT}"
+```
 
 ## Validate Workload Identity Federation Pool Setup
 ![Vision API Validation](images/validate.png)
